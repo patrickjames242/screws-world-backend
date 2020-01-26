@@ -1,14 +1,26 @@
 
 const express = require('express');
-const path = require('path');
+const { Client } = require('pg');
 const app = express();
+
+
+
+// const client = new Client();
+
+// client.connect()
+// .then(function(){
+//     console.log(arguments);
+// });
+
+
 
 app.use(express.json())
 
 const usersRouter = express.Router();
 
 usersRouter.get('/', (request, response) => {
-    response.send("you want to retreive all users");
+    // response.send("you want to retreive all users");
+    response.json(process.env);
 });
 
 usersRouter.get('/:id', (request, response) => {
@@ -23,7 +35,7 @@ usersRouter.post ('/create', (request, response) => {
 app.use('/product-items', usersRouter);
 
 const port = process.env.PORT || 5000;
-console.log(process.env);
+
 app.listen(port, () => console.log(`Server started on port ${port}`));
 
 
