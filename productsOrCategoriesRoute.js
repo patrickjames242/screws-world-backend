@@ -1,6 +1,6 @@
 
 const express = require('express');
-const {HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback, errorTypes, validateIDMiddleware} = require('./helpers.js');
+const {HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback, validateIDMiddleware} = require('./helpers.js');
 const databaseClient = require('./databaseClient.js');
 const {requireAuthentication} = require('./authentication');
 
@@ -22,6 +22,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
 
     router.use("/:id", validateIDMiddleware);
 
+    // get all items
     router.get('/', (_, response) => {
         databaseClient.query(`select * from ${categoryOrProductInfo.tableName}`)
             .then(({ rows }) => {
@@ -29,6 +30,8 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
             }).catch(promiseCatchCallback(response));
     });
 
+
+    // get item for id
     router.get('/:id', (request, response) => {
         const id = request.params.id;
         databaseClient.query(`select * from ${categoryOrProductInfo.tableName} where id = ${id}`)
@@ -37,11 +40,13 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
                 if (obj) {
                     response.json(SuccessResponse(obj));
                 } else {
-                    response.status(HTTPErrorCodes.badRequest).json(FailureResponse(`could not find a ${categoryOrProductInfo.name} with an id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`could not find a ${categoryOrProductInfo.name} with an id of ${id}`));
                 }
             }).catch(promiseCatchCallback(response));
     });
 
+
+    // create new item
     router.post('/', requireAuthentication, (request, response) => {
         const props = request.body;
 
@@ -66,6 +71,8 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
             }).catch(promiseCatchCallback(response));
     });
 
+
+    // update already existing item
     router.put('/:id', requireAuthentication, (request, response) => {
         const id = request.params.id;
         const props = request.body;
@@ -89,12 +96,12 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
                 if (affectedRow) {
                     response.json(SuccessResponse(affectedRow));
                 } else {
-                    response.status(HTTPErrorCodes.badRequest).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
                 }
             }).catch(promiseCatchCallback(response));
     });
 
-
+    // delete item
     router.delete('/:id', requireAuthentication, (request, response) => {
 
         const id = request.params.id;
@@ -102,7 +109,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
         databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id}`)
             .then(({ rowCount }) => {
                 if (rowCount === 0) {
-                    response.status(HTTPErrorCodes.badRequest).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
                 } else {
                     response.json(SuccessResponse(null));
                 }

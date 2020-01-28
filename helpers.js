@@ -9,10 +9,6 @@ exports.HTTPErrorCodes = {
     incorrectUsernameOrPassword: 403,
 }
 
-exports.errorTypes = {
-    invalidAuthToken: "invalid_auth_token",
-}
-
 
 exports.SuccessResponse = function(data) {
     return {

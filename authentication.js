@@ -1,6 +1,6 @@
 
 const jsw = require('jsonwebtoken');
-const {HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback, errorTypes} = require('./helpers.js');
+const {HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback} = require('./helpers.js');
 const bcrypt = require('bcrypt');
 const { sign } = require('jsonwebtoken');
 
@@ -10,13 +10,13 @@ exports.requireAuthentication = function(request, response, next){
     const authTokenHeaderKey = "auth-token";
     const authToken = request.headers[authTokenHeaderKey];
     if (authToken == undefined){
-        response.status(HTTPErrorCodes.badRequest)
+        response.status(HTTPErrorCodes.invalidAuthentication)
         .json(FailureResponse(`This request requires authentication and you have not provided an auth token. Please set the '${authTokenHeaderKey}' property in the header with an auth token retrieved from a login request.`));
         return;
     }
     jsw.verify(authToken, process.env.AUTH_TOKEN_SECRET, (error) => {
         if (error){
-            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("the auth token provided is not valid",  errorTypes.invalidAuthToken));
+            response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("the auth token provided is not valid"));
         } else {
             next();
         }
@@ -27,12 +27,12 @@ exports.requireAuthentication = function(request, response, next){
 exports.handleLogInRoute = function(request, response){
     const username = request.body.username;
     if (username == undefined){
-        response.status(HTTPErrorCodes.badRequest).json(FailureResponse("you have not provided a username"));
+        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("you have not provided a username"));
         return;
     }
     const password = request.body.password;
     if (password == undefined){
-        response.status(HTTPErrorCodes.badRequest).json(FailureResponse("you have not provided a password"));
+        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("you have not provided a password"));
         return;
     }
     const incorectUsernameOrPassword = "your username and/or password is incorrect"
@@ -46,7 +46,7 @@ exports.handleLogInRoute = function(request, response){
         bcrypt.compare(password, fetchedUserInfo.hashed_password)
         .then((isPasswordCorrect) => {
             if (!isPasswordCorrect){
-                response.status(HTTPErrorCodes.badRequest).json(FailureResponse(incorectUsernameOrPassword));
+                response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse(incorectUsernameOrPassword));
                 return;
             }
             new Promise((success, failure) => {
