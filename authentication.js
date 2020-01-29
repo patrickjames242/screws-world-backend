@@ -3,11 +3,14 @@ const jsw = require('jsonwebtoken');
 const {HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback} = require('./helpers.js');
 const bcrypt = require('bcrypt');
 const { sign } = require('jsonwebtoken');
+const express = require('express');
 
 const databaseClient = require('./databaseClient.js');
 
+exports.AUTH_TOKEN_HEADER_KEY = "auth-token";
+
 exports.requireAuthentication = function(request, response, next){
-    const authTokenHeaderKey = "auth-token";
+    const authTokenHeaderKey = exports.AUTH_TOKEN_HEADER_KEY;
     const authToken = request.headers[authTokenHeaderKey];
     if (authToken == undefined){
         response.status(HTTPErrorCodes.invalidAuthentication)
@@ -24,7 +27,9 @@ exports.requireAuthentication = function(request, response, next){
 }
 
 
-exports.handleLogInRoute = function(request, response){
+exports.handleLogInRoute = express.Router();
+
+exports.handleLogInRoute.post("/", (request, response) => {
     const username = request.body.username;
     if (username == undefined){
         response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("you have not provided a username"));
@@ -39,7 +44,7 @@ exports.handleLogInRoute = function(request, response){
     databaseClient.query(`select * from users where username = $1`, [username])
     .then(({rows: [fetchedUserInfo]}) => {
         if (!fetchedUserInfo){
-            response.json(FailureResponse(incorectUsernameOrPassword));
+            response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse(incorectUsernameOrPassword));
             return;
         }
         
@@ -62,7 +67,7 @@ exports.handleLogInRoute = function(request, response){
         .catch(promiseCatchCallback(response));
     })
     .catch(promiseCatchCallback(response));
-};
+});
 
 
 

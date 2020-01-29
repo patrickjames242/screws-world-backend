@@ -23,6 +23,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
     router.use("/:id", validateIDMiddleware);
 
     // get all items
+
     router.get('/', (_, response) => {
         databaseClient.query(`select * from ${categoryOrProductInfo.tableName}`)
             .then(({ rows }) => {
@@ -32,6 +33,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
 
 
     // get item for id
+
     router.get('/:id', (request, response) => {
         const id = request.params.id;
         databaseClient.query(`select * from ${categoryOrProductInfo.tableName} where id = ${id}`)
@@ -47,6 +49,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
 
 
     // create new item
+
     router.post('/', requireAuthentication, (request, response) => {
         const props = request.body;
 
@@ -73,6 +76,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
 
 
     // update already existing item
+
     router.put('/:id', requireAuthentication, (request, response) => {
         const id = request.params.id;
         const props = request.body;
@@ -102,6 +106,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
     });
 
     // delete item
+    
     router.delete('/:id', requireAuthentication, (request, response) => {
 
         const id = request.params.id;
