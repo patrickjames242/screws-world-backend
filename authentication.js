@@ -19,7 +19,7 @@ exports.requireAuthentication = function(request, response, next){
     }
     jsw.verify(authToken, process.env.AUTH_TOKEN_SECRET, (error) => {
         if (error){
-            response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("the auth token provided is not valid"));
+            response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("The auth token provided is not valid."));
         } else {
             next();
         }
@@ -32,15 +32,15 @@ exports.handleLogInRoute = express.Router();
 exports.handleLogInRoute.post("/", (request, response) => {
     const username = request.body.username;
     if (username == undefined){
-        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("you have not provided a username"));
+        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("You have not provided a username."));
         return;
     }
     const password = request.body.password;
     if (password == undefined){
-        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("you have not provided a password"));
+        response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse("You have not provided a password."));
         return;
     }
-    const incorectUsernameOrPassword = "your username and/or password is incorrect"
+    const incorectUsernameOrPassword = "Your username and/or password is incorrect."
     databaseClient.query(`select * from users where username = $1`, [username])
     .then(({rows: [fetchedUserInfo]}) => {
         if (!fetchedUserInfo){

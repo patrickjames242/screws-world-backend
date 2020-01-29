@@ -42,7 +42,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
                 if (obj) {
                     response.json(SuccessResponse(obj));
                 } else {
-                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`could not find a ${categoryOrProductInfo.name} with an id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with an id of ${id}.`));
                 }
             }).catch(promiseCatchCallback(response));
     });
@@ -87,7 +87,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
         ].filter(x => x.value != undefined);
 
         if (propsToUse.length === 0) {
-            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("you didn't send any valid properties to update the object with"));
+            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("You didn't send any valid properties to update the object with."));
             return;
         }
 
@@ -100,7 +100,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
                 if (affectedRow) {
                     response.json(SuccessResponse(affectedRow));
                 } else {
-                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with id of ${id}.`));
                 }
             }).catch(promiseCatchCallback(response));
     });
@@ -114,7 +114,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
         databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id}`)
             .then(({ rowCount }) => {
                 if (rowCount === 0) {
-                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`no ${categoryOrProductInfo.name} exists with id of ${id}`));
+                    response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with id of ${id}.`));
                 } else {
                     response.json(SuccessResponse(null));
                 }
