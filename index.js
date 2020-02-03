@@ -1,3 +1,4 @@
+
 require('dotenv').config();
 const express = require('express');
 const { categoryInfo, productInfo, getRouterForCategoryOrProduct } = require('./productsOrCategoriesRoute.js');
@@ -10,6 +11,7 @@ app.use(express.json());
 function corsHandlerMiddleware(request, response, next){
     
     response.setHeader("Access-Control-Allow-Origin", "*");
+    response.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, PUT");
     response.setHeader("Access-Control-Allow-Headers", `Content-Type, ${AUTH_TOKEN_HEADER_KEY}`);
 
     const isPreflightRequest = request.method === 'OPTIONS' && request.headers['origin'] && request.headers['access-control-request-method'];
