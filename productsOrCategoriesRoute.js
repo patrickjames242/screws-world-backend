@@ -62,7 +62,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
             { key: "title", value: props.title },
             { key: "description", value: props.description },
             { key: "parent_category", value: props.parent_category },
-        ].filter(x => x.value != undefined);
+        ].filter(x => x.value !== undefined);
 
         const propNamesString = `(${propsToUse.map(x => x.key).join(", ")})`;
         const valuesString = `(${propsToUse.map((_, i) => "$" + (i + 1)).join(", ")})`;
@@ -84,7 +84,7 @@ exports.getRouterForCategoryOrProduct = function(categoryOrProductInfo) {
             { key: "title", value: props.title },
             { key: "description", value: props.description },
             { key: "parent_category", value: props.parent_category },
-        ].filter(x => x.value != undefined);
+        ].filter(x => x.value !== undefined);
         if (propsToUse.length === 0) {
             response.status(HTTPErrorCodes.badRequest).json(FailureResponse("You didn't send any valid properties to update the object with."));
             return;
