@@ -17,7 +17,6 @@ create table product (
     title text not null,
     description text,
     parent_category int references product_category on delete cascade,
-    constraint parent_cannot_be_self check (parent_category != id)
 )
 
 CREATE TABLE users(
