@@ -1,6 +1,5 @@
 
 
-
 exports.HTTPErrorCodes = {
     serverError: 500,
     badRequest: 400,
@@ -32,15 +31,5 @@ exports.promiseCatchCallback = function(response){
 }
 
 
-// replaces the id string with a number if it is valid, sends an error and returns null if it isn't;
-exports.validateIDMiddleware = function(request, response, next) {
-    const id = Number(request.params.id);
-    if (isNaN(id) === true) {
-        response.status(exports.HTTPErrorCodes.badRequest).json(exports.FailureResponse(`the id of '${request.params.id}' is invalid`));
-        return;
-    } else {
-        request.params.id = id;
-        next();
-    }
-}
+
 

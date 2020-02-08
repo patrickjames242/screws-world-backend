@@ -1,21 +1,27 @@
+
+
 const { Client } = require('pg');
 
 /*
 
 database tables
 
-create table product_category(
-    id serial primary key,
+create table common_product_item_columns (
     title text not null,
     description text,
+    image_url text,
+    image_aws_key text
+)
+
+create table product_category(
+    id serial primary key,    
     parent_category int references product_category on delete cascade,
     constraint parent_cannot_be_self check (parent_category != id)
 );
 
+
 create table product (
     id serial primary key,
-    title text not null,
-    description text,
     parent_category int references product_category on delete cascade,
 )
 
@@ -24,6 +30,7 @@ CREATE TABLE users(
     username text NOT NULL unique,
     hashed_password text NOT NULL
 )
+
 
 */
 
