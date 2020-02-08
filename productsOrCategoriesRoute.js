@@ -80,20 +80,7 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
         response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with id of ${request.params.id}.`));
     }
 
-    async function doesIDExist(id) {
-        return databaseClient.query(`select exists(select 1 from ${categoryOrProductInfo.tableName} where id = $1)`, [id])
-            .then(({ rows: [firstRow] }) => {
-                if (firstRow && firstRow.exists) {
-                    return true;
-                } else {
-                    return false;
-                }
-            }).catch((error) => {
-                return false;
-            });
-    }
-
-
+  
 
     router.use("/:id", validateIDMiddleware);
 

@@ -4,15 +4,10 @@ require('dotenv').config();
 const express = require('express');
 const { categoryInfo, productInfo, getRouterForCategoryOrProduct } = require('./productsOrCategoriesRoute.js');
 const {handleLogInRoute, AUTH_TOKEN_HEADER_KEY} = require('./authentication.js');
-const fileUploadParser = require('express-fileupload');
-
 
 const app = express();
 
-
-
 app.use(express.json());
-app.use(fileUploadParser());
 app.use(express.raw({type: "image/*", limit: "10mb"}));
 
 
