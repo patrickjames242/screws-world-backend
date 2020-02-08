@@ -77,7 +77,7 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
     const router = express.Router();
 
     function sendIdDoesNotExistFailure(request, response) {
-        response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with id of ${request.params.id}.`));
+        response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with an id of ${request.params.id}.`));
     }
 
   
