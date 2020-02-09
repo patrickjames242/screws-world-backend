@@ -59,7 +59,7 @@ exports.productInfo = {
 const validateIDMiddleware = function (request, response, next) {
     const id = Number(request.params.id);
     if (isNaN(id) === true) {
-        response.status(HTTPErrorCodes.badRequest).json(FailureResponse(`The id of '${request.params.id}' is invalid.`));
+        response.status(HTTPErrorCodes.badRequest).json(FailureResponse(`The id, '${request.params.id}' is invalid.`));
         return;
     } else {
         request.params.id = id;
@@ -242,7 +242,7 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
                 if (firstRow.image_aws_key) {
                     AWS_S3_Helpers.deleteProductItemImage(firstRow.image_aws_key)
                         .then(() => { /* dont care what happens here */ })
-                        .catch(() => { /* dont care what happens here */ })
+                        .catch(() => { /* dont care what happens here */ });
                 }
 
                 databaseClient.query(`update ${categoryOrProductInfo.tableName} set image_aws_key = null, image_url = null where id = $1 returning ${propertiesToFetch}`, [request.params.id])
@@ -268,8 +268,18 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
 
         const id = request.params.id;
 
-        databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id}`)
-            .then(({ rowCount }) => {
+        databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id} returning *`)
+            .then(({ rowCount, rows }) => {
+
+                for (const row of rows){
+                    const imageKey = row.image_aws_key;
+                    if (imageKey){
+                        AWS_S3_Helpers.deleteProductItemImage(imageKey)
+                        .then(() => { /* dont care what happens here */ })
+                        .catch(() => { /* dont care what happens here */ });
+                    }
+                }
+
                 if (rowCount === 0) {
                     sendIdDoesNotExistFailure(request, response);
                 } else {
