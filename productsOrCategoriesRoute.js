@@ -1,6 +1,6 @@
 
 const express = require('express');
-const { HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback } = require('./helpers.js');
+const { HTTPErrorCodes, SuccessResponse, FailureResponse, promiseCatchCallback, sendErrorResponseToClient } = require('./helpers.js');
 const databaseClient = require('./databaseClient.js');
 const { requireAuthentication } = require('./authentication');
 const mime = require('mime-types');
@@ -45,12 +45,12 @@ const AWS_S3_Helpers = {
 };
 
 
-exports.categoryInfo = {
+const categoryInfo = {
     name: "category",
     tableName: "product_categories",
 }
 
-exports.productInfo = {
+const productInfo = {
     name: "product",
     tableName: "products",
 }
@@ -71,8 +71,7 @@ const validateIDMiddleware = function (request, response, next) {
 
 
 
-
-exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
+function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
     const router = express.Router();
 
@@ -80,7 +79,7 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
         response.status(HTTPErrorCodes.resourceNotFound).json(FailureResponse(`No ${categoryOrProductInfo.name} exists with an id of ${request.params.id}.`));
     }
 
-  
+
 
     router.use("/:id", validateIDMiddleware);
 
@@ -111,28 +110,48 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
     });
 
 
+    function grabProductItemPropsFromRequest(request) {
+        const props = request.body;
 
+        const getTrimmedValueForKey = (key) => {
+            const trimmedValue = (() => {
+                const untrimmedValue = props[key];
+                if (typeof untrimmedValue === "string") {
+                    return untrimmedValue.trim();
+                } else { return untrimmedValue; }
+            })();
+
+            if (trimmedValue === "") {
+                return null;
+            } else {
+                return trimmedValue
+            }
+        }
+
+        return [
+            { key: "title", value: getTrimmedValueForKey("title") },
+            { key: "description", value: getTrimmedValueForKey("description") },
+            { key: "parent_category", value: props.parent_category },
+        ].filter(x => x.value !== undefined);
+    }
 
     // create new item
 
     router.post('/', requireAuthentication, (request, response) => {
 
-        const props = request.body;
+        const props = grabProductItemPropsFromRequest(request);
 
-        if (props.title == undefined) {
-            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("The 'title' property is required, but you have not included it."));
+        const titleValueIsNotProvided = props.some(x => x.key === "title" && x.value != null) === false;
+
+        if (titleValueIsNotProvided) {
+            response.status(HTTPErrorCodes.badRequest)
+            .json(FailureResponse("A value is required for the 'title' property, but you have not included it."));
             return;
         }
 
-        const propsToUse = [
-            { key: "title", value: props.title },
-            { key: "description", value: props.description },
-            { key: "parent_category", value: props.parent_category },
-        ].filter(x => x.value !== undefined);
-
-        const propNamesString = `(${propsToUse.map(x => x.key).join(", ")})`;
-        const valuesString = `(${propsToUse.map((_, i) => "$" + (i + 1)).join(", ")})`;
-        const values = propsToUse.map(x => x.value);
+        const propNamesString = `(${props.map(x => x.key).join(", ")})`;
+        const valuesString = `(${props.map((_, i) => "$" + (i + 1)).join(", ")})`;
+        const values = props.map(x => x.value);
 
         databaseClient.query(`insert into ${categoryOrProductInfo.tableName} ${propNamesString} values ${valuesString} returning ${propertiesToFetch}`, values)
             .then(({ rows: [firstRow] }) => {
@@ -145,20 +164,25 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
 
     router.put('/:id', requireAuthentication, (request, response) => {
         const id = request.params.id;
-        const props = request.body;
-        const propsToUse = [
-            { key: "title", value: props.title },
-            { key: "description", value: props.description },
-            { key: "parent_category", value: props.parent_category },
-        ].filter(x => x.value !== undefined);
-        if (propsToUse.length === 0) {
-            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("You didn't send any valid properties to update the object with."));
+        const props = grabProductItemPropsFromRequest(request);
+
+        if (props.length === 0) {
+            response.status(HTTPErrorCodes.badRequest)
+            .json(FailureResponse("You didn't send any valid properties to update the object with."))
             return;
         }
 
-        const values = propsToUse.map(x => x.value);
+        const titleValueIsNull = props.some(x => x.key === "title" && x.value === null)
 
-        const setPropsString = propsToUse.map((x, i) => `${x.key} = $${i + 1}`).join(", ");
+        if (titleValueIsNull){
+            response.status(HTTPErrorCodes.badRequest)
+            .json(FailureResponse("The value you sent for the title property is invalid."))
+            return;
+        }
+
+        const values = props.map(x => x.value);
+
+        const setPropsString = props.map((x, i) => `${x.key} = $${i + 1}`).join(", ");
 
         databaseClient.query(`update ${categoryOrProductInfo.tableName} set ${setPropsString} where id = ${id} returning ${propertiesToFetch}`, values)
             .then(({ rows: [affectedRow] }) => {
@@ -175,8 +199,9 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
 
     router.put('/:id/image', requireAuthentication, (request, response) => {
 
-        if (request.body instanceof Buffer === false) {
-            response.status(HTTPErrorCodes.badRequest).json(FailureResponse("Either you have not included a body with the request or the body you have included is invalid."));
+        if ((request.body instanceof Buffer) === false) {
+            response.status(HTTPErrorCodes.badRequest)
+            .json(FailureResponse("Either you have not included a body with the request or the body you have included is invalid."));
             return;
         }
 
@@ -271,12 +296,12 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
         databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id} returning *`)
             .then(({ rowCount, rows }) => {
 
-                for (const row of rows){
+                for (const row of rows) {
                     const imageKey = row.image_aws_key;
-                    if (imageKey){
+                    if (imageKey) {
                         AWS_S3_Helpers.deleteProductItemImage(imageKey)
-                        .then(() => { /* dont care what happens here */ })
-                        .catch(() => { /* dont care what happens here */ });
+                            .then(() => { /* dont care what happens here */ })
+                            .catch(() => { /* dont care what happens here */ });
                     }
                 }
 
@@ -290,3 +315,7 @@ exports.getRouterForCategoryOrProduct = function (categoryOrProductInfo) {
 
     return router;
 }
+
+
+exports.getCategoriesRouter = () => getRouterForCategoryOrProduct(categoryInfo);
+exports.getProductsRouter = () => getRouterForCategoryOrProduct(productInfo);

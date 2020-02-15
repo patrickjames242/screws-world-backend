@@ -2,9 +2,9 @@
 
 require('dotenv').config();
 const express = require('express');
-const { categoryInfo, productInfo, getRouterForCategoryOrProduct } = require('./productsOrCategoriesRoute.js');
+const { getCategoriesRouter, getProductsRouter} = require('./productsOrCategoriesRoute.js');
 const {handleLogInRoute, AUTH_TOKEN_HEADER_KEY} = require('./authentication.js');
-
+const {sendErrorResponseToClient} = require('./helpers.js');
 const app = express();
 
 app.use(express.json());
@@ -29,15 +29,13 @@ function corsHandlerMiddleware(request, response, next){
 
 app.use(corsHandlerMiddleware);
 app.use('/login', handleLogInRoute);
-app.use('/categories', getRouterForCategoryOrProduct(categoryInfo));
-app.use('/products', getRouterForCategoryOrProduct(productInfo));
+app.use('/categories', getCategoriesRouter());
+app.use('/products', getProductsRouter());
+
+app.use((error, request, response, next) => {
+    sendErrorResponseToClient(response, error);
+});
 
 const port = process.env.PORT || 5000;
 
-
 app.listen(port, () => console.log(`Server started on port ${port}`));
-
-
-
-
-

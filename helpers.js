@@ -24,9 +24,13 @@ exports.FailureResponse = function(errorMessage, errorType) {
     }
 }
 
+exports.sendErrorResponseToClient = function(response, error){
+    response.status(exports.HTTPErrorCodes.serverError).json(exports.FailureResponse("A server error occured. Here it is 👉🏽 " + error.message));
+}
+
 exports.promiseCatchCallback = function(response){
     return (error) => {
-        response.status(exports.HTTPErrorCodes.serverError).json(exports.FailureResponse("A server error occured. Here it is 👉🏽 " + error.message));
+        exports.sendErrorResponseToClient(response, error);
     }
 }
 
