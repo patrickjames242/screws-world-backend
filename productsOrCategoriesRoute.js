@@ -8,6 +8,8 @@ const AWS = require('aws-sdk');
 const getUUID = require('uuid/v4');
 
 
+console.warn("TODO: write an sql function that checks that a new category parent id is not the child of the category, before actually updating the parent id. For now, I make 2 sql queries to do this, but what if an update happens in between the execution of those two queries? Fix it")
+
 const AWS_S3_Helpers = {
 
     BUCKET_NAME: "screws-world-backend",
@@ -244,6 +246,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
             if (categoryOrProductInfo === categoryInfo && 
                 typeof props.parent_category === 'number' && 
                 isNaN(props.parent_category) === false){
+                
                 await assertNewCategoryParentIsNotCurrentlyItsChild(id, props.parent_category);
                 return await getDatabaseQueryPromise();
             } else {
