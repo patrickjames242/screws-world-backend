@@ -11,7 +11,6 @@ app.use(express.json());
 app.use(express.raw({type: "image/*", limit: "10mb"}));
 
 
-
 function corsHandlerMiddleware(request, response, next){
     
     response.setHeader("Access-Control-Allow-Origin", "*");

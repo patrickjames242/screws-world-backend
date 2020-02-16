@@ -17,6 +17,7 @@ exports.requireAuthentication = function(request, response, next){
         .json(FailureResponse(`This request requires authentication and you have not provided an auth token. Please set the '${authTokenHeaderKey}' property in the header with an auth token retrieved from a login request.`));
         return;
     }
+    
     jsw.verify(authToken, process.env.AUTH_TOKEN_SECRET, (error) => {
         if (error){
             response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("The auth token provided is not valid."));

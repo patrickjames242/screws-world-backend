@@ -41,8 +41,34 @@ const AWS_S3_Helpers = {
                 error != null ? reject(error) : resolve(result);
             });
         });
+    },
+
+    getAllProductItemImageKeys: async () => {
+        return new Promise((resolve, reject) => {
+            
+            const params = {
+                Prefix: AWS_S3_Helpers.PRODUCT_ITEM_IMAGE_FOLDER,
+                Bucket: AWS_S3_Helpers.BUCKET_NAME,
+            };
+
+            AWS_S3_Helpers.api.listObjects(params, (error, data) => {
+                if (data != null && data.Contents != null){
+                    const keys = data.Contents.map(x => x.Key);
+                    resolve(keys);
+                } else {
+                    reject(error == null ? new Error("An unknown error occured.") : error);
+                }
+            })
+        })
     }
 };
+
+
+
+
+
+
+
 
 
 const categoryInfo = {
@@ -135,6 +161,10 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
         ].filter(x => x.value !== undefined);
     }
 
+
+    
+
+
     // create new item
 
     router.post('/', requireAuthentication, (request, response) => {
@@ -145,7 +175,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         if (titleValueIsNotProvided) {
             response.status(HTTPErrorCodes.badRequest)
-            .json(FailureResponse("A value is required for the 'title' property, but you have not included it."));
+                .json(FailureResponse("A value is required for the 'title' property, but you have not included it."));
             return;
         }
 
@@ -160,6 +190,29 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
     });
 
 
+
+    async function assertNewCategoryParentIsNotCurrentlyItsChild(categoryID, newParentCategoryID){
+        const {rows: [firstRow]} = await databaseClient.query(`
+        SELECT EXISTS (
+            WITH RECURSIVE _all_ancestors AS (
+                SELECT title, parent_category, id FROM product_categories WHERE id = $2 AND id != $1
+                UNION ALL
+                SELECT c.title, c.parent_category, c.id FROM _all_ancestors a 
+                INNER JOIN 
+                product_categories c ON (c.id = a.parent_category AND a.id != $1)
+            )
+            SELECT * FROM _all_ancestors WHERE id = $1
+        )
+        `, [categoryID, newParentCategoryID])
+
+        if (firstRow.exists === true){
+            return Promise.reject(new Error("You tried to set the parent of a category to be one of its children categories. This is not allowed."));
+        } else {
+            return undefined;
+        }
+    }
+
+
     // update already existing item
 
     router.put('/:id', requireAuthentication, (request, response) => {
@@ -168,30 +221,43 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         if (props.length === 0) {
             response.status(HTTPErrorCodes.badRequest)
-            .json(FailureResponse("You didn't send any valid properties to update the object with."))
+                .json(FailureResponse("You didn't send any valid properties to update the object with."))
             return;
         }
 
         const titleValueIsNull = props.some(x => x.key === "title" && x.value === null)
 
-        if (titleValueIsNull){
+        if (titleValueIsNull) {
             response.status(HTTPErrorCodes.badRequest)
-            .json(FailureResponse("The value you sent for the title property is invalid."))
+                .json(FailureResponse("The value you sent for the title property is invalid."))
             return;
         }
 
-        const values = props.map(x => x.value);
-
-        const setPropsString = props.map((x, i) => `${x.key} = $${i + 1}`).join(", ");
-
-        databaseClient.query(`update ${categoryOrProductInfo.tableName} set ${setPropsString} where id = ${id} returning ${propertiesToFetch}`, values)
-            .then(({ rows: [affectedRow] }) => {
-                if (affectedRow) {
-                    response.json(SuccessResponse(affectedRow));
-                } else {
-                    sendIdDoesNotExistFailure(request, response);
-                }
-            }).catch(promiseCatchCallback(response));
+        const getDatabaseQueryPromise = () => {
+            const values = props.map(x => x.value);
+            const setPropsString = props.map((x, i) => `${x.key} = $${i + 1}`).join(", ");
+            return databaseClient.query(`update ${categoryOrProductInfo.tableName} set ${setPropsString} where id = ${id} returning ${propertiesToFetch}`, values)
+        };
+        
+        
+        (async () => {
+            if (categoryOrProductInfo === categoryInfo && 
+                typeof props.parent_category === 'number' && 
+                isNaN(props.parent_category) === false){
+                await assertNewCategoryParentIsNotCurrentlyItsChild(id, props.parent_category);
+                return await getDatabaseQueryPromise();
+            } else {
+                return getDatabaseQueryPromise();
+            }
+        })()
+        .then(({rows: [affectedRow]}) => {
+            if (affectedRow) {
+                response.json(SuccessResponse(affectedRow));
+            } else {
+                sendIdDoesNotExistFailure(request, response);
+            }
+        })
+        .catch(promiseCatchCallback(response));
     });
 
 
@@ -201,7 +267,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         if ((request.body instanceof Buffer) === false) {
             response.status(HTTPErrorCodes.badRequest)
-            .json(FailureResponse("Either you have not included a body with the request or the body you have included is invalid."));
+                .json(FailureResponse("Either you have not included a body with the request or the body you have included is invalid."));
             return;
         }
 
@@ -253,6 +319,13 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
     });
 
 
+    function deleteImageForPathAndIgnoreResponse(path) {
+        AWS_S3_Helpers.deleteProductItemImage(path)
+            .then(() => { /* dont care what happens here */ })
+            .catch(() => { /* dont care what happens here */ });
+    }
+
+
     // delete image
 
     router.delete('/:id/image', requireAuthentication, (request, response) => {
@@ -265,9 +338,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
                 }
 
                 if (firstRow.image_aws_key) {
-                    AWS_S3_Helpers.deleteProductItemImage(firstRow.image_aws_key)
-                        .then(() => { /* dont care what happens here */ })
-                        .catch(() => { /* dont care what happens here */ });
+                    deleteImageForPathAndIgnoreResponse(firstRow.image_aws_key);
                 }
 
                 databaseClient.query(`update ${categoryOrProductInfo.tableName} set image_aws_key = null, image_url = null where id = $1 returning ${propertiesToFetch}`, [request.params.id])
@@ -293,25 +364,80 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         const id = request.params.id;
 
-        databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id} returning *`)
-            .then(({ rowCount, rows }) => {
-
-                for (const row of rows) {
-                    const imageKey = row.image_aws_key;
-                    if (imageKey) {
-                        AWS_S3_Helpers.deleteProductItemImage(imageKey)
-                            .then(() => { /* dont care what happens here */ })
-                            .catch(() => { /* dont care what happens here */ });
-                    }
+        
+        const imageKeysGetter = (() => {
+            if (categoryOrProductInfo === categoryInfo){
+                return getAllImageKeysForCategoryAndRecursiveChildren;
+           } else {
+                return async (id) => {
+                    const result = await getImageKeyForProduct(id);
+                    if (typeof result === "string"){
+                        return [result];
+                    } else {return []}
                 }
+            }
+        })();
+
+        imageKeysGetter(id)
+            .then((imageKeys) => {
+                const databaseQuery = databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id} returning *`);
+                return Promise.all([imageKeys, databaseQuery]);
+            })
+            .then(([imagePaths, { rowCount }]) => {
 
                 if (rowCount === 0) {
                     sendIdDoesNotExistFailure(request, response);
                 } else {
                     response.json(SuccessResponse(null));
+                    imagePaths.forEach(x => deleteImageForPathAndIgnoreResponse(x))
                 }
             }).catch(promiseCatchCallback(response));
     });
+
+
+    async function getImageKeyForProduct(productID){
+        const {rows: [firstRow]} = databaseClient.query(`select image_aws_key from products where id = $1`, [productID]);
+        if (firstRow != null){
+            return firstRow.image_aws_key;
+        } else {
+            return undefined;
+        }
+    }
+
+
+    // returns an array containing the aws image key from the category with the category id provided, the children of that category, the children of the children and so on.
+
+    async function getAllImageKeysForCategoryAndRecursiveChildren(categoryID) {
+
+        const { rows } = await databaseClient.query(`
+        WITH RECURSIVE all_descendents AS (
+
+            SELECT id AS category_id, image_aws_key from product_categories where id = $1::integer
+            
+            UNION ALL
+
+            (
+                SELECT p.category_id, p.image_aws_key FROM
+                
+                (
+                    SELECT id AS category_id, image_aws_key, parent_category FROM product_categories 
+                    UNION ALL
+                    SELECT NULL AS category_id, image_aws_key, parent_category FROM products
+                ) p 
+                
+                INNER JOIN
+                 
+                all_descendents a
+                
+                ON p.parent_category = a.category_id
+            )
+        )
+
+        SELECT * FROM all_descendents
+        `, [categoryID]);
+
+        return rows.map(x => x.image_aws_key).filter(x => x != null);
+    }
 
     return router;
 }
@@ -319,3 +445,53 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
 exports.getCategoriesRouter = () => getRouterForCategoryOrProduct(categoryInfo);
 exports.getProductsRouter = () => getRouterForCategoryOrProduct(productInfo);
+
+
+
+
+
+
+
+
+
+
+
+// call this function delete any unused images in aws
+
+// function deleteUnusedS3Images(){
+//     AWS_S3_Helpers.getAllProductItemImageKeys()
+//     .then((allImageKeys) => {
+//         const keysSQLString = allImageKeys.map(x => "('" + x + "')").join(", ");
+//         return databaseClient.query(`
+//         SELECT aws_values.image_aws_key FROM
+
+//         (
+//             SELECT image_aws_key, TRUE AS _is_from_db FROM product_categories 
+//             UNION ALL
+//             SELECT image_aws_key, TRUE AS _is_from_db FROM products
+//         ) AS db_values
+
+//         RIGHT OUTER JOIN 
+
+//         (VALUES ${keysSQLString}) AS aws_values (image_aws_key)
+
+//         ON db_values.image_aws_key = aws_values.image_aws_key
+
+//         WHERE db_values._is_from_db IS NULL
+//         `)
+//     })
+//     .then(({rows}) => {
+//         const keysToDelete = rows.map(x => x.image_aws_key);
+//         console.log("Here are the images in aws s3 that aren't being used by any database rows:")
+//         console.log(keysToDelete);
+//         console.log("If there are any, I'm going to delete them ^^ now");
+//         const deletePromises = keysToDelete.map(x => AWS_S3_Helpers.deleteProductItemImage(x));
+//         return Promise.all(deletePromises);
+//     })
+//     .then(() => {
+//         console.log("I successfully deleted all unused aws s3 images, if there were any.");
+//     })
+//     .catch((error) => {
+//         console.log(error);
+//     })
+// }
