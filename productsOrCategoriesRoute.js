@@ -374,13 +374,14 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
            } else {
                 return async (id) => {
                     const result = await getImageKeyForProduct(id);
+
                     if (typeof result === "string"){
                         return [result];
                     } else {return []}
                 }
             }
         })();
-
+        
         imageKeysGetter(id)
             .then((imageKeys) => {
                 const databaseQuery = databaseClient.query(`delete from ${categoryOrProductInfo.tableName} where id = ${id} returning *`);
@@ -399,7 +400,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
 
     async function getImageKeyForProduct(productID){
-        const {rows: [firstRow]} = databaseClient.query(`select image_aws_key from products where id = $1`, [productID]);
+        const {rows: [firstRow]} = await databaseClient.query(`select image_aws_key from products where id = $1`, [productID]);
         if (firstRow != null){
             return firstRow.image_aws_key;
         } else {
@@ -411,7 +412,6 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
     // returns an array containing the aws image key from the category with the category id provided, the children of that category, the children of the children and so on.
 
     async function getAllImageKeysForCategoryAndRecursiveChildren(categoryID) {
-
         const { rows } = await databaseClient.query(`
         WITH RECURSIVE all_descendents AS (
 
@@ -438,7 +438,6 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         SELECT * FROM all_descendents
         `, [categoryID]);
-
         return rows.map(x => x.image_aws_key).filter(x => x != null);
     }
 
