@@ -437,6 +437,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
         )
 
         SELECT * FROM all_descendents
+        
         `, [categoryID]);
         return rows.map(x => x.image_aws_key).filter(x => x != null);
     }

@@ -17,14 +17,34 @@ exports.requireAuthentication = function(request, response, next){
         .json(FailureResponse(`This request requires authentication and you have not provided an auth token. Please set the '${authTokenHeaderKey}' property in the header with an auth token retrieved from a login request.`));
         return;
     }
+
+    function sendInvalidAuthTokenError(){
+        response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("The auth token provided is not valid."));
+    }
+
+    const accessTokenPayload = jsw.decode(authToken);
     
-    jsw.verify(authToken, process.env.AUTH_TOKEN_SECRET, (error) => {
-        if (error){
-            response.status(HTTPErrorCodes.invalidAuthentication).json(FailureResponse("The auth token provided is not valid."));
-        } else {
-            next();
+    if (accessTokenPayload == null || accessTokenPayload.id == null){
+        sendInvalidAuthTokenError();
+        return;
+    }
+
+    databaseClient.query("select hashed_password from users where id = $1", [accessTokenPayload.id])
+    .then(({rows: [firstRow]}) => {
+        if (firstRow == null){
+            sendInvalidAuthTokenError();
+            return;
         }
-    });
+        const hashedPassword = firstRow.hashed_password;
+        jsw.verify(authToken, hashedPassword, (error) => {
+            if (error != null){
+                sendInvalidAuthTokenError();
+            } else {
+                next();
+            }
+        });
+    })
+    .catch(promiseCatchCallback(response));
 }
 
 
@@ -51,12 +71,12 @@ exports.handleLogInRoute.post("/", (request, response) => {
         
         bcrypt.compare(password, fetchedUserInfo.hashed_password)
         .then((isPasswordCorrect) => {
-            if (!isPasswordCorrect){
+            if (isPasswordCorrect == false){
                 response.status(HTTPErrorCodes.incorrectUsernameOrPassword).json(FailureResponse(incorectUsernameOrPassword));
                 return;
             }
             new Promise((success, failure) => {
-                sign({username: fetchedUserInfo.username, id: fetchedUserInfo.id}, process.env.AUTH_TOKEN_SECRET, (error, token) => {
+                sign({id: fetchedUserInfo.id}, fetchedUserInfo.hashed_password, (error, token) => {
                         if (error){failure(error);} else {success(token);}
                 });
             })
