@@ -5,6 +5,7 @@ const express = require('express');
 const { getCategoriesRouter, getProductsRouter} = require('./productsOrCategoriesRoute.js');
 const {handleLogInRoute, AUTH_TOKEN_HEADER_KEY} = require('./authentication.js');
 const {sendErrorResponseToClient} = require('./helpers.js');
+const {getEmailRouter} = require('./email.js');
 const app = express();
 
 app.use(express.json());
@@ -30,7 +31,7 @@ app.use(corsHandlerMiddleware);
 app.use('/login', handleLogInRoute);
 app.use('/categories', getCategoriesRouter());
 app.use('/products', getProductsRouter());
-
+app.use('/email', getEmailRouter());
 app.use((error, request, response, next) => {
     sendErrorResponseToClient(response, error);
 });
@@ -38,3 +39,9 @@ app.use((error, request, response, next) => {
 const port = process.env.PORT || 5000;
 
 app.listen(port, () => console.log(`Server started on port ${port}`));
+
+
+
+
+
+
