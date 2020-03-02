@@ -2,7 +2,7 @@
 
 const nodemailer = require('nodemailer');
 const { Router } = require('express');
-const { HTTPErrorCodes, SuccessResponse, FailureResponse, sendErrorResponseToClient } = require('./helpers.js');
+const { HTTPErrorCodes, SuccessResponse, FailureResponse, sendErrorResponseToClient, isValidEmail } = require('./helpers.js');
 
 const emailTransporter = nodemailer.createTransport({
     service: 'hotmail',
@@ -38,6 +38,13 @@ module.exports.getEmailRouter = function () {
             const emptyFieldsString = emptyFields.map(x => x[0]).join(', ');
             const code = HTTPErrorCodes.badRequest;
             const json = FailureResponse(`The values submitted for the following fields: ${emptyFieldsString}, are either missing or invalid.`)
+            response.status(code).json(json);
+            return;
+        }
+
+        if (isValidEmail(contact_email) !== true){
+            const code = HTTPErrorCodes.badRequest;
+            const json = FailureResponse(`The email you submitted for the contact_email field is invalid.`)
             response.status(code).json(json);
             return;
         }
