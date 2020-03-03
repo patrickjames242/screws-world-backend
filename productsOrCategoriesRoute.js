@@ -291,29 +291,27 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
                     }
                 })();
 
-                if (firstRow.image_aws_key) {
-                    AWS_S3_Helpers.deleteProductItemImage(firstRow.image_aws_key)
-                        .then(() => { /* dont care what happens here */ })
-                        .catch(() => { /* dont care what happens here */ })
-                }
+                const oldAWSImageKey = firstRow.image_aws_key
 
                 AWS_S3_Helpers.uploadProductItemImage(fileExtension, request.body)
                     .then((result) => {
                         const url = result.Location;
                         const key = result.key;
 
-                        return databaseClient.query(`update ${categoryOrProductInfo.tableName} set image_aws_key = $1, image_url = $2 where id = $3 returning ${propertiesToFetch}`, [key, url, request.params.id]);
+                        const databaseQuery = databaseClient.query(`update ${categoryOrProductInfo.tableName} set image_aws_key = $1, image_url = $2 where id = $3 returning ${propertiesToFetch}`, [key, url, request.params.id]);
 
-                    }).then((dbResult) => {
+                        return Promise.all([databaseQuery, key]);
+
+                    }).then(([dbResult, newAWSImageKey]) => {
                         const firstRow = dbResult.rows[0];
 
                         if (firstRow == undefined) {
                             sendIdDoesNotExistFailure(request, response);
-                            AWS_S3_Helpers.deleteProductItemImage(key)
-                                .then(() => { /* dont care what happens here */ })
-                                .catch(() => { /* dont care what happens here */ })
+                            deleteImageForPathAndIgnoreResponse(newAWSImageKey);
                             return;
                         }
+
+                        deleteImageForPathAndIgnoreResponse(oldAWSImageKey);
 
                         response.json(SuccessResponse(firstRow));
 
@@ -340,13 +338,12 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
                     return;
                 }
 
-                if (firstRow.image_aws_key) {
-                    deleteImageForPathAndIgnoreResponse(firstRow.image_aws_key);
-                }
+                const oldImageKey = firstRow.image_aws_key;
 
                 databaseClient.query(`update ${categoryOrProductInfo.tableName} set image_aws_key = null, image_url = null where id = $1 returning ${propertiesToFetch}`, [request.params.id])
                     .then(({ rows: [firstRow] }) => {
                         if (firstRow) {
+                            deleteImageForPathAndIgnoreResponse(oldImageKey);
                             response.json(SuccessResponse(firstRow));
                         } else {
                             sendIdDoesNotExistFailure(request, response);
@@ -498,3 +495,5 @@ exports.getProductsRouter = () => getRouterForCategoryOrProduct(productInfo);
 //         console.log(error);
 //     })
 // }
+
+
