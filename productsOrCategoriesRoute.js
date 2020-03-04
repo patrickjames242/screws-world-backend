@@ -12,7 +12,7 @@ console.warn("TODO: write an sql function that checks that a new category parent
 
 const AWS_S3_Helpers = {
 
-    BUCKET_NAME: "screws-world-backend",
+    BUCKET_NAME: "screws-world-website",
     PRODUCT_ITEM_IMAGE_FOLDER: "product-item-images",
 
     api: new AWS.S3({
