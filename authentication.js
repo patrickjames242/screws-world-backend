@@ -92,15 +92,22 @@ exports.handleLogInRoute.post("/", (request, response) => {
 
 
 
-// call the function below to add a new username and password to the database
+// call the function below to add a new username and password to the database, or update the password if the username already exists
 
-// function createNewUser(username, password){
+// async function createNewUserOrUpdateUserPassword(username, password){
 //     const saltRounds = 10;
-//     return bcrypt.hash(password, saltRounds)
-//     .then((hash) => {
-//         return databaseClient.query(`insert into users (username, hashed_password) values ($1, $2) returning *`, [username, hash]);
-//     })
-//     .then(({rows: [row1]}) => {
-//         return Promise.resolve(row1);
-//     });
+//     const hash = await bcrypt.hash(password, saltRounds);
+    
+//     const { rows: [row1] } = await databaseClient.query(`
+
+//     insert into users (username, hashed_password) values ($1, $2)
+
+//     ON conflict ON CONSTRAINT username_must_be_unique DO UPDATE SET hashed_password = EXCLUDED.hashed_password
+    
+//     returning *
+
+//     `, [username, hash]);
+//     return Promise.resolve(row1);
 // }
+
+
