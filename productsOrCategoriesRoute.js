@@ -113,7 +113,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
     // get all items
 
-    const propertiesToFetch = "id, title, description, parent_category, image_url";
+    const propertiesToFetch = "id, title, description, parent_category, image_url, image_content_fit_mode";
 
     router.get('/', (_, response) => {
         databaseClient.query(`select ${propertiesToFetch} from ${categoryOrProductInfo.tableName}`)
@@ -160,6 +160,7 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
             { key: "title", value: getTrimmedValueForKey("title") },
             { key: "description", value: getTrimmedValueForKey("description") },
             { key: "parent_category", value: props.parent_category },
+            { key: "image_content_fit_mode", value: props.image_content_fit_mode },
         ].filter(x => x.value !== undefined);
     }
 
@@ -173,14 +174,17 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
 
         const props = grabProductItemPropsFromRequest(request);
 
-        const titleValueIsNotProvided = props.some(x => x.key === "title" && x.value != null) === false;
+        const requiredValuesNotIncluded = ['title', 'image_content_fit_mode'].filter(x => {
+            // we make sure a string is present and that the string is not empty ONLY because both of our required values are strings, if this changes in the future, this code must be updated.
+            return props.some(y => y.key === x && typeof y.value === "string" && y.value.length > 0) === false
+        });
 
-        if (titleValueIsNotProvided) {
+        if (requiredValuesNotIncluded.length > 0){
             response.status(HTTPErrorCodes.badRequest)
-                .json(FailureResponse("A value is required for the 'title' property, but you have not included it."));
+                .json(FailureResponse(`A valid value is required for the following properties: ${requiredValuesNotIncluded.join(', ')}, but you have not included one.`));
             return;
         }
-
+        
         const propNamesString = `(${props.map(x => x.key).join(", ")})`;
         const valuesString = `(${props.map((_, i) => "$" + (i + 1)).join(", ")})`;
         const values = props.map(x => x.value);
@@ -227,11 +231,13 @@ function getRouterForCategoryOrProduct(categoryOrProductInfo) {
             return;
         }
 
-        const titleValueIsNull = props.some(x => x.key === "title" && x.value === null)
+        const invalidValues = ['title', 'image_content_fit_mode'].filter(x => {
+            return props.some(y => y.key === x && (typeof y.value !== "string" || y.value.length < 1))
+        });
 
-        if (titleValueIsNull) {
+        if (invalidValues.length > 0) {
             response.status(HTTPErrorCodes.badRequest)
-                .json(FailureResponse("The value you sent for the title property is invalid."))
+                .json(FailureResponse(`The values you sent for the following properties are invalid: ${invalidValues.join(', ')}.`))
             return;
         }
 
